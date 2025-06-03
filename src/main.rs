@@ -11,7 +11,6 @@ pub struct Credential {
     pub monero_seed: Option<[u8; 32]>,
 }
 
-// Import local modules
 use seed_decoder::{
     cipher_seed::CipherSeed,
     mnemonic::{Mnemonic, MnemonicLanguage},
@@ -105,7 +104,6 @@ fn decrypt_seed_phrase() {
             return;
         }
     };
-    //ask user if they want to recover passphrase from credential manager or enter it manually
     let recover_passphrase = get_user_input(
         "Do you want to recover the passphrase from the credential manager? (y/n): ",
     );
@@ -226,7 +224,7 @@ fn test_seed_phrase_generation() {
                     .collect::<Vec<_>>()
                     .join(", ");
                 print!(
-                    "\rGenerated {} phrases with first wrod frequencies: {}",
+                    "\rGenerated {} phrases with first word frequencies: {}",
                     i + 1,
                     stats
                 );
@@ -251,7 +249,6 @@ fn test_seed_phrase_generation() {
     std::io::stdout().flush().unwrap();
 }
 fn main() {
-    //run a loop, for each iteration, ask the user if they want to generate a new phrase, decrypt a phrase, or exit
     loop {
         println!("##################################");
         println!("##### Tari Seed Phrase Tools #####");
