@@ -121,7 +121,7 @@ fn decrypt_seed_phrase() {
         };
 
     if passphrase.is_none() {
-        eprintln!("❌ No passphrase found in the credential manager. Please set it up first.");
+        eprintln!("❌ No passphrase found in the credential manager. Unable to decrypt seed phrase");
         return;
     }
 
@@ -130,8 +130,6 @@ fn decrypt_seed_phrase() {
         .map_err(|e| anyhow!(e.to_string()));
     match seed_binary {
         Ok(bytes) => {
-            println!("Found {} bytes", bytes.len());
-            println!("Encrypted bytes (hex): {:?}", hex::to_hex(&bytes));
             let cipher_seed = match CipherSeed::from_enciphered_bytes(&bytes, passphrase.clone()) {
                 Ok(cipher_seed) => {
                     println!("Cipher seed decrypted successfully!");
