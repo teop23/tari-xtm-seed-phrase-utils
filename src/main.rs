@@ -3,7 +3,6 @@ use std::io::Write;
 use anyhow::anyhow;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
-use tari_crypto::tari_utilities::hex;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Credential {
