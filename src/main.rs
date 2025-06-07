@@ -18,30 +18,44 @@ use seed_decoder::{
 use tari_utilities::encoding::MBase58;
 use tari_utilities::password::SafePassword;
 
-fn get_passphrase_from_credential_manager() -> Option<SafePassword> {
+fn get_passphrase_from_credential_manager(mainnet: bool) -> Option<SafePassword> {
     let service = "com.tari.universe";
-    let username = "inner_wallet_credentials_mainnet";
+    let network = match mainnet {
+        true => "mainnet",
+        false => "testnet",
+    };
 
-    let entry = Entry::new(service, username).expect("Failed to access keyring entry");
+    let username = format!("inner_wallet_credentials_{}", network);
+    let entry = match Entry::new(service, username.as_str()) {
+        Ok(entry) => Some(entry),
+        Err(_) => None,
+    };
+
+    if entry.is_none() {
+        return None;
+    }
+
+    let entry = entry.unwrap();
 
     let secret = match entry.get_secret() {
-        Ok(secret) => secret,
-        Err(e) => {
-            eprintln!("❌ Error getting secret: {:?}", e);
-            std::process::exit(1);
-        }
+        Ok(secret) => Some(secret),
+        Err(_) => None,
     };
 
-    let credential: Credential = match serde_cbor::from_slice(&secret) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("❌ Failed to deserialize credential: {:?}", e);
-            std::process::exit(1);
-        }
+    if secret.is_none() {
+        return None;
+    }
+
+    let credential = match serde_cbor::from_slice::<Credential>(&secret.unwrap()) {
+        Ok(c) => Some(c),
+        Err(_) => None,
     };
 
-    println!("Passphrase retrieved successfully!");
-    credential.tari_seed_passphrase
+    if credential.is_none() {
+        return None;
+    }
+
+    credential.unwrap().tari_seed_passphrase
 }
 
 fn get_encrypted_seed() -> Result<String, Box<dyn std::error::Error>> {
@@ -108,8 +122,29 @@ fn decrypt_seed_phrase() {
     );
     let passphrase =
         if recover_passphrase.to_lowercase() == "y" || recover_passphrase.to_lowercase() == "yes" {
-            println!("Attempting to recover passphrase from credential manager...");
-            get_passphrase_from_credential_manager()
+            let use_mainnet = get_user_input("Use mainnet credentials? (y/n): ");
+            let mainnet = use_mainnet.to_lowercase() == "y" || use_mainnet.to_lowercase() == "yes";
+            let networks = match mainnet {
+                true => ("mainnet", "testnet"),
+                false => ("testnet", "mainnet"),
+            };
+            println!(
+                "Attempting to recover {} passphrase from credential manager...",
+                networks.0
+            );
+            match get_passphrase_from_credential_manager(mainnet) {
+                Some(passphrase) => {
+                    println!("Passphrase recovered successfully!");
+                    Some(passphrase)
+                }
+                None => {
+                    eprintln!(
+                        "❌ Failed to recover {} passphrase(maybe try {})",
+                        networks.0, networks.1
+                    );
+                    None
+                }
+            }
         } else {
             let passphrase_input = get_user_input("Enter passphrase to decrypt the seed phrase: ");
             if passphrase_input.is_empty() {
@@ -120,15 +155,15 @@ fn decrypt_seed_phrase() {
         };
 
     if passphrase.is_none() {
-        eprintln!("❌ No passphrase found in the credential manager. Unable to decrypt seed phrase");
         return;
     }
-
+    
     println!("Attempting to decrypt seed phrase...");
     let seed_binary = Vec::<u8>::from_monero_base58(&seed_words_encrypted_base58)
         .map_err(|e| anyhow!(e.to_string()));
     match seed_binary {
         Ok(bytes) => {
+            println!("Found {} bytes(should be 33)", bytes.len());
             let cipher_seed = match CipherSeed::from_enciphered_bytes(&bytes, passphrase.clone()) {
                 Ok(cipher_seed) => {
                     println!("Cipher seed decrypted successfully!");
